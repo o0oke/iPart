@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>iRainbow By Evel Liu</title>
+	<script>
+		document.addEventListener('contextmenu', function(e) {
+			e.preventDefault();
+	});
+</script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        /* 左侧参数配置面板 */
+        #config-panel {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 250px;
+            height: 100%;
+            background-color: #f0f8ff;
+            border-right: 1px solid #ccc;
+            padding: 10px;
+            font-size: 1rem; /* 字体调大一倍 */
+            transition: transform 0.3s;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        #config-panel.collapsed {
+            transform: translateX(-250px);
+        }
+        
+        /* 右侧层显示控制面板 */
+        #layers-panel {
+            position: fixed;
+            right: 0;
+            top: 0;
+            width: 250px;
+            height: 100%;
+            background-color: #f0f8ff;
+            border-left: 1px solid #ccc;
+            padding: 10px;
+            font-size: 1rem; /* 字体调大一倍 */
+            transition: transform 0.3s;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        #layers-panel.collapsed {
+            transform: translateX(250px);
+        }
+        
+        /* 中间显示区域 */
+        #display-panel {
+            position: absolute;
+            left: 250px;
+            right: 250px;
+            top: 0;
+            bottom: 0;
+            background-color: black; /* 背景调整为黑色 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: left 0.3s, right 0.3s;
+            overflow: hidden;
+        }
+        
+        #display-panel.expanded {
+            left: 0;
+            right: 0;
+        }
+        
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+        
+        #bgaCanvas {
+            position: absolute;
+            transform-origin: top left;
+        }
+        
+        /* 控制按钮 */
+        .control-buttons {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            display: flex;
+            align-items: center;
+            background-color: rgba(255, 255, 255, 0.7);
+            padding: 5px;
+            border-radius: 3px;
+        }
+        
+        .zoom-btn {
+            padding: 3px 6px;
+            margin: 0 2px;
+            cursor: pointer;
+            font-size: 1rem; /* 字体调大一倍 */
+        }
+        
+        #zoomLevel {
+            font-size: 1rem; /* 字体调大一倍 */
+            margin: 0 5px;
+        }
+        
+        .fit-view-btn {
+            padding: 3px 6px;
+            font-size: 1rem; /* 字体调大一倍 */
+            margin-left: 5px;
+        }
+        
+        /* 图例 */
+        .legend {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: rgba(255, 255, 255, 0.7);
+            padding: 5px;
+            border-radius: 3px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 3px;
+            font-size: 1rem; /* 字体调大一倍 */
+        }
+        
+        .color-box {
+            width: 12px;
+            height: 12px;
+            margin-right: 5px;
+            border: 1px solid #ccc;
+        }
+        
+        /* 面板标题 */
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            cursor: pointer;
+            padding: 5px;
+            border-bottom: 1px solid #ccc;
+        }
+        
+        .panel-title {
+            font-weight: bold;
+            font-size: 1.2rem; /* 字体调大一倍 */
+        }
+        
+        .toggle-btn-container {
+            display: flex;
+            justify-content: flex-start; /* 调整为左对齐 */
+            align-items: center;
+            height: 100%;
+            width: 30px;
+        }
+        
+        .toggle-btn {
+            background: none;
+            border: none;
+            font-size: 1.2rem; /* 字体调大一倍 */
+            cursor: pointer;
+            color: #333;
+        }
+        
+        /* 表单样式 */
+        .form-group {
+            margin-bottom: 10px;
+        }
+        
+        label {
+            display: inline-block;
+            width: 100px;
+            font-weight: bold;
+            font-size: 1rem; /* 字体调大一倍 */
+        }
+        
+        input {
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            width: 80px;
+            font-size: 1rem; /* 字体调大一倍 */
+        }
+        
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 5px 10px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 1rem; /* 字体调大一倍 */
+            width: 100%;
+            margin-top: 5px;
+        }
+        
+        button:hover {
+            background-color: #45a049;
+        }
+        
+        /* 层控制项 */
+        .layer-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            padding: 5px;
+            background-color: white;
+            border-radius: 3px;
+        }
+        
+        .layer-color {
+            width: 12px;
+            height: 12px;
+            margin-right: 8px;
+            border: 1px solid #ccc;
+        }
+        
+        /* 面板内容区域 */
+        .panel-content {
+            flex: 1;
+            overflow-y: auto;
+        }
+        
+        /* 全局控制按钮 */
+        .global-control {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+			margin-bottom: 25px;
+        }
+        
+        .global-toggle-btn {
+            padding: 3px 6px;
+            margin: 0 4px; /* 与缩放按钮对齐 */
+            cursor: pointer;
+            font-size: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- 左侧参数配置面板 -->
+    <div id="config-panel">
+        <div class="panel-header" id="config-toggle">
+            <span class="panel-title">Configuration</span>
+            <div class="toggle-btn-container">
+                <button class="toggle-btn">←</button>
+            </div>
+        </div>
+        <div class="panel-content">
+            <div class="form-group">
+                <label for="bga1CenterX">BGA1中心X:</label>
+                <input type="number" id="bga1CenterX" value="100" min="0">
+            </div>
+            
+            <div class="form-group">
+                <label for="bga1CenterY">BGA1中心Y:</label>
+                <input type="number" id="bga1CenterY" value="100" min="0">
+            </div>
+            
+            <div class="form-group">
+                <label for="bga1Rows">BGA1行数:</label>
+                <input type="number" id="bga1Rows" value="7" min="1">
+            </div>
+            
+            <div class="form-group">
+                <label for="bga1Cols">BGA1列数:</label>
+                <input type="number" id="bga1Cols" value="7" min="1">
+            </div>
+            
+            <div class="form-group">
+                <label for="bga1BallRadius">BGA1球半径:</label>
+                <input type="number" id="bga1BallRadius" value="5" min="1" step="0.5">
+            </div>
+            
+            <div class="form-group">
+                <label for="bga2CenterX">BGA2中心X:</label>
+                <input type="number" id="bga2CenterX" value="150" min="0">
+            </div>
+            
+            <div class="form-group">
+                <label for="bga2CenterY">BGA2中心Y:</label>
+                <input type="number" id="bga2CenterY" value="500" min="0">
+            </div>
+            
+            <div class="form-group">
+                <label for="bga2Rows">BGA2行数:</label>
+                <input type="number" id="bga2Rows" value="7" min="1">
+            </div>
+            
+            <div class="form-group">
+                <label for="bga2Cols">BGA2列数:</label>
+                <input type="number" id="bga2Cols" value="7" min="1">
+            </div>
+            
+            <div class="form-group">
+                <label for="bga2BallRadius">BGA2球半径:</label>
+                <input type="number" id="bga2BallRadius" value="5" min="1" step="0.5">
+            </div>
+            
+            <div class="form-group">
+                <label for="lineWidth">线宽:</label>
+                <input type="number" id="lineWidth" value="2" min="1" step="0.5">
+            </div>
+            
+            <div class="form-group">
+                <label for="lineSpacing">线距:</label>
+                <input type="number" id="lineSpacing" value="3" min="1" step="0.5">
+            </div>
+            
+            <div class="form-group">
+                <label for="layerCount">走线层数:</label>
+                <input type="number" id="layerCount" value="7" min="1">
+            </div>
+            
+            <button id="generateBtn">Auto Route</button>
+        </div>
+    </div>
+    
+    <!-- 中间显示区域 -->
+    <div id="display-panel">
+        <div class="canvas-container" id="canvasContainer">
+            <canvas id="bgaCanvas"></canvas>
+            <div class="control-buttons">
+                <button class="zoom-btn" id="zoomIn">+</button>
+                <button class="zoom-btn" id="zoomOut">-</button>
+                <span id="zoomLevel">100%</span>
+                <button class="fit-view-btn" id="fitViewBtn">ALL</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 右侧层显示控制面板 -->
+    <div id="layers-panel">
+        <div class="panel-header" id="layers-toggle">
+            <div class="toggle-btn-container">
+                <button class="toggle-btn">→</button>
+            </div>
+            <span class="panel-title">Layer</span>
+        </div>
+        <div class="panel-content" id="layerControlsContent">
+            <!-- 层控制将通过JavaScript动态生成 -->
+        </div>
+        <div class="global-control">
+            <button class="global-toggle-btn" id="showAllBtn">ON</button>
+            <button class="global-toggle-btn" id="hideAllBtn">OFF</button>
+        </div>
+    </div>
+
+    <script>
+        // 获取Canvas元素和上下文
+        const canvas = document.getElementById('bgaCanvas');
+        const ctx = canvas.getContext('2d');
+        const canvasContainer = document.getElementById('canvasContainer');
+        
+        // 设置Canvas大小
+        function resizeCanvas() {
+            canvas.width = canvasContainer.clientWidth;
+            canvas.height = canvasContainer.clientHeight;
+        }
+        
+        // 初始化时调整Canvas大小
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        
+        // 缩放和平移相关变量
+        let scale = 1;
+        let offsetX = 0;
+        let offsetY = 0;
+        let isDragging = false;
+        let lastX, lastY;
+        
+        // 拖动灵敏度因子
+        const dragSensitivity = 1.5; // 增加拖动灵敏度
+        
+        // BGA参数
+        let bga1 = {
+            centerX: 100,
+            centerY: 100,
+            rows: 5,
+            cols: 5,
+            ballRadius: 5,
+            balls: []
+        };
+        
+        let bga2 = {
+            centerX: 300,
+            centerY: 300,
+            rows: 5,
+            cols: 5,
+            ballRadius: 5,
+            balls: []
+        };
+        
+        // 路径规划参数
+        let pathParams = {
+            lineWidth: 2,
+            lineSpacing: 3,
+            layerCount: 2,
+            paths: [],
+            visibleLayers: []
+        };
+        
+        // 生成BGA球
+        function generateBGA(bga) {
+            bga.balls = [];
+            const pitch = (bga.rows > 1 || bga.cols > 1) ? 
+                          2 * bga.ballRadius + 5 : 2 * bga.ballRadius;
+            
+            for (let row = 0; row < bga.rows; row++) {
+                for (let col = 0; col < bga.cols; col++) {
+                    const x = bga.centerX + (col - (bga.cols - 1) / 2) * pitch;
+                    const y = bga.centerY + (row - (bga.rows - 1) / 2) * pitch;
+                    bga.balls.push({ x, y, row, col });
+                }
+            }
+        }
+        
+        // 绘制BGA焊盘
+        function drawBGA(bga, color) {
+            ctx.strokeStyle = '#000000'; // 焊盘边框颜色
+            ctx.lineWidth = 1; // 焊盘线宽固定为1
+            ctx.fillStyle = '#ffffff'; // 焊盘填充颜色为白色
+            
+            bga.balls.forEach(ball => {
+                ctx.beginPath();
+                ctx.arc(ball.x, ball.y, bga.ballRadius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+            });
+        }
+        
+        // A*算法辅助函数
+        class Node {
+            constructor(x, y, g, h, parent) {
+                this.x = x;
+                this.y = y;
+                this.g = g; // 从起点到当前节点的实际成本
+                this.h = h; // 从当前节点到终点的启发式成本
+                this.f = g + h; // 总成本
+                this.parent = parent;
+            }
+        }
+        
+        // 计算启发式成本（曼哈顿距离）
+        function heuristic(x, y, endX, endY) {
+            return Math.abs(x - endX) + Math.abs(y - endY);
+        }
+        
+        // 检查位置是否可通行
+        function isWalkable(x, y, existingPaths, layerIndex, lineSpacing) {
+            // 检查是否与同层现有路径冲突
+            for (const pathData of existingPaths) {
+                if (pathData.layerIndex !== layerIndex) continue;
+                
+                for (let i = 0; i < pathData.path.length - 1; i++) {
+                    const x1 = pathData.path[i].x;
+                    const y1 = pathData.path[i].y;
+                    const x2 = pathData.path[i + 1].x;
+                    const y2 = pathData.path[i + 1].y;
+                    
+                    // 检查与现有线段的距离
+                    const distance = pointToLineSegmentDistance(x, y, x1, y1, x2, y2);
+                    if (distance < lineSpacing) {
+                        return false;
+                    }
+                }
+            }
+            
+            return true;
+        }
+        
+        // 点到线段的距离
+        function pointToLineSegmentDistance(px, py, x1, y1, x2, y2) {
+            const A = px - x1;
+            const B = py - y1;
+            const C = x2 - x1;
+            const D = y2 - y1;
+            
+            const dot = A * C + B * D;
+            const len_sq = C * C + D * D;
+            let param = -1;
+            
+            if (len_sq !== 0) {
+                param = dot / len_sq;
+            }
+            
+            let xx, yy;
+            
+            if (param < 0) {
+                xx = x1;
+                yy = y1;
+            } else if (param > 1) {
+                xx = x2;
+                yy = y2;
+            } else {
+                xx = x1 + param * C;
+                yy = y1 + param * D;
+            }
+            
+            const dx = px - xx;
+            const dy = py - yy;
+            
+            return Math.sqrt(dx * dx + dy * dy);
+        }
+        
+        // A*路径规划算法
+        function astarPathfinding(start, end, layerIndex, existingPaths, lineSpacing) {
+            const openList = [];
+            const closedList = new Set();
+            const startX = Math.floor(start.x);
+            const startY = Math.floor(start.y);
+            const endX = Math.floor(end.x);
+            const endY = Math.floor(end.y);
+            
+            openList.push(new Node(startX, startY, 0, heuristic(startX, startY, endX, endY), null));
+            
+            while (openList.length > 0) {
+                // 找到F值最小的节点
+                openList.sort((a, b) => a.f - b.f);
+                const currentNode = openList.shift();
+                
+                // 检查是否到达终点
+                if (currentNode.x === endX && currentNode.y === endY) {
+                    // 重建路径
+                    const path = [];
+                    let current = currentNode;
+                    while (current !== null) {
+                        path.unshift({ x: current.x, y: current.y });
+                        current = current.parent;
+                    }
+                    return path;
+                }
+                
+                // 将当前节点加入关闭列表
+                closedList.add(`${currentNode.x},${currentNode.y}`);
+                
+                // 生成子节点（8个方向）
+                const directions = [
+                    { dx: 0, dy: -1 },  // 上
+                    { dx: 0, dy: 1 },   // 下
+                    { dx: -1, dy: 0 },  // 左
+                    { dx: 1, dy: 0 },   // 右
+                    { dx: -1, dy: -1 }, // 左上
+                    { dx: 1, dy: -1 },  // 右上
+                    { dx: -1, dy: 1 },  // 左下
+                    { dx: 1, dy: 1 }    // 右下
+                ];
+                
+                for (const dir of directions) {
+                    const newX = currentNode.x + dir.dx;
+                    const newY = currentNode.y + dir.dy;
+                    
+                    // 检查新位置是否可通行
+                    if (!isWalkable(newX, newY, existingPaths, layerIndex, lineSpacing)) {
+                        continue;
+                    }
+                    
+                    // 计算移动成本
+                    const moveCost = (dir.dx === 0 || dir.dy === 0) ? 1 : Math.sqrt(2);
+                    const newG = currentNode.g + moveCost;
+                    
+                    // 检查新位置是否在关闭列表中
+                    if (closedList.has(`${newX},${newY}`)) {
+                        continue;
+                    }
+                    
+                    // 检查新位置是否在开放列表中
+                    const existingNode = openList.find(node => node.x === newX && node.y === newY);
+                    if (existingNode) {
+                        if (newG < existingNode.g) {
+                            existingNode.g = newG;
+                            existingNode.f = newG + existingNode.h;
+                            existingNode.parent = currentNode;
+                        }
+                    } else {
+                        const h = heuristic(newX, newY, endX, endY);
+                        openList.push(new Node(newX, newY, newG, h, currentNode));
+                    }
+                }
+            }
+            
+            // 如果没有找到路径，返回空数组
+            return [];
+        }
+        
+        // 绘制路径
+        function drawPath(path, layerIndex, totalLayers) {
+            if (!pathParams.visibleLayers[layerIndex]) {
+                return; // 如果层不可见，跳过绘制
+            }
+            
+            ctx.strokeStyle = `hsl(${(layerIndex / totalLayers) * 360}, 100%, 50%)`;
+            ctx.lineWidth = pathParams.lineWidth;
+            ctx.beginPath();
+            ctx.moveTo(path[0].x, path[0].y);
+            
+            for (let i = 1; i < path.length; i++) {
+                ctx.lineTo(path[i].x, path[i].y);
+            }
+            
+            ctx.stroke();
+        }
+        
+        // 绘制所有路径
+        function drawAllPaths() {
+            pathParams.paths = [];
+            
+            // 为每个BGA1球和BGA2球创建路径
+            for (let i = 0; i < bga1.balls.length; i++) {
+                const bga1Ball = bga1.balls[i];
+                const bga2Ball = bga2.balls[i % bga2.balls.length]; // 简单映射，可以改为更复杂的映射
+                
+                // 分配层数
+                const layerIndex = i % pathParams.layerCount;
+                
+                // 创建路径
+                const path = astarPathfinding(
+                    { x: bga1Ball.x, y: bga1Ball.y },
+                    { x: bga2Ball.x, y: bga2Ball.y },
+                    layerIndex,
+                    pathParams.paths,
+                    pathParams.lineSpacing
+                );
+                
+                if (path.length > 0) {
+                    pathParams.paths.push({ path, layerIndex });
+                }
+            }
+        }
+        
+        // 绘制整个场景
+        function render() {
+            // 清空画布
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 应用缩放和平移
+            ctx.save();
+            ctx.translate(offsetX, offsetY);
+            ctx.scale(scale, scale);
+            
+            // 绘制BGA焊盘
+            drawBGA(bga1, '#ff0000');
+            drawBGA(bga2, '#0000ff');
+            
+            // 绘制路径
+            pathParams.paths.forEach(pathData => {
+                drawPath(pathData.path, pathData.layerIndex, pathParams.layerCount);
+            });
+            
+            ctx.restore();
+        }
+        
+        // 生成BGA和路径
+        function generateBGAAndPaths() {
+            // 获取参数
+            bga1.centerX = parseFloat(document.getElementById('bga1CenterX').value);
+            bga1.centerY = parseFloat(document.getElementById('bga1CenterY').value);
+            bga1.rows = parseInt(document.getElementById('bga1Rows').value);
+            bga1.cols = parseInt(document.getElementById('bga1Cols').value);
+            bga1.ballRadius = parseFloat(document.getElementById('bga1BallRadius').value);
+            
+            bga2.centerX = parseFloat(document.getElementById('bga2CenterX').value);
+            bga2.centerY = parseFloat(document.getElementById('bga2CenterY').value);
+            bga2.rows = parseInt(document.getElementById('bga2Rows').value);
+            bga2.cols = parseInt(document.getElementById('bga2Cols').value);
+            bga2.ballRadius = parseFloat(document.getElementById('bga2BallRadius').value);
+            
+            pathParams.lineWidth = parseFloat(document.getElementById('lineWidth').value);
+            pathParams.lineSpacing = parseFloat(document.getElementById('lineSpacing').value);
+            const newLayerCount = parseInt(document.getElementById('layerCount').value);
+            
+            // 更新可见层数组
+            if (pathParams.visibleLayers.length !== newLayerCount) {
+                pathParams.visibleLayers = Array(newLayerCount).fill(true);
+                updateLayerControls(newLayerCount);
+            }
+            
+            pathParams.layerCount = newLayerCount;
+            
+            // 生成BGA
+            generateBGA(bga1);
+            generateBGA(bga2);
+            
+            // 计算所有路径
+            drawAllPaths();
+            
+            // 居中显示
+            const bounds = calculateBounds();
+            const width = bounds.maxX - bounds.minX;
+            const height = bounds.maxY - bounds.minY;
+            const centerX = (bounds.minX + bounds.maxX) / 2;
+            const centerY = (bounds.minY + bounds.maxY) / 2;
+            
+            const containerWidth = canvasContainer.clientWidth;
+            const containerHeight = canvasContainer.clientHeight;
+            
+            // 计算合适的缩放比例
+            const scaleToFitWidth = containerWidth / width;
+            const scaleToFitHeight = containerHeight / height;
+            scale = Math.min(scaleToFitWidth, scaleToFitHeight) * 0.8; // 留一些边距
+            
+            // 计算偏移量使图形居中
+            offsetX = (containerWidth / 2) - (centerX * scale);
+            offsetY = (containerHeight / 2) - (centerY * scale);
+            
+            document.getElementById('zoomLevel').textContent = `${Math.round(scale * 100)}%`;
+            
+            // 渲染
+            render();
+        }
+        
+        // 更新层控制
+        function updateLayerControls(layerCount) {
+            const layerControlsContent = document.getElementById('layerControlsContent');
+            layerControlsContent.innerHTML = '';
+            
+            for (let i = 0; i < layerCount; i++) {
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = `layerToggle${i}`;
+                checkbox.checked = pathParams.visibleLayers[i];
+                
+                checkbox.addEventListener('change', function() {
+                    pathParams.visibleLayers[i] = this.checked;
+                    render();
+                });
+                
+                const label = document.createElement('label');
+                label.htmlFor = `layerToggle${i}`;
+                label.textContent = `层 ${i + 1}`;
+                
+                const div = document.createElement('div');
+                div.className = 'layer-item';
+                div.appendChild(checkbox);
+                div.appendChild(label);
+                
+                // 添加颜色示例
+                const colorBox = document.createElement('div');
+                colorBox.className = 'layer-color';
+                colorBox.style.backgroundColor = `hsl(${(i / layerCount) * 360}, 100%, 50%)`;
+                div.appendChild(colorBox);
+                
+                layerControlsContent.appendChild(div);
+            }
+        }
+        
+        // 基于光标中心的缩放
+        function zoomCanvas(delta, mouseX, mouseY) {
+            const zoomFactor = 0.2; // 增加缩放系数
+            scale = Math.max(0.1, Math.min(5, scale + delta * zoomFactor)); // 调整缩放范围
+            document.getElementById('zoomLevel').textContent = `${Math.round(scale * 100)}%`;
+            
+            // 调整偏移以保持鼠标位置不变
+            const prevScale = 1 / (scale - delta * zoomFactor);
+            const newScale = 1 / scale;
+            
+            offsetX = (offsetX + mouseX) * newScale - mouseX;
+            offsetY = (offsetY + mouseY) * newScale - mouseY;
+            
+            render();
+        }
+        
+        // 鼠标滚轮缩放
+        canvasContainer.addEventListener('wheel', function(e) {
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            
+            zoomCanvas(e.deltaY > 0 ? -1 : 1, mouseX, mouseY);
+        });
+        
+        // 鼠标拖动平移
+        canvasContainer.addEventListener('mousedown', function(e) {
+            isDragging = true;
+            lastX = e.clientX;
+            lastY = e.clientY;
+        });
+        
+        canvasContainer.addEventListener('mousemove', function(e) {
+            if (isDragging) {
+                const dx = e.clientX - lastX;
+                const dy = e.clientY - lastY;
+                offsetX += dx / scale * dragSensitivity;
+                offsetY += dy / scale * dragSensitivity;
+                lastX = e.clientX;
+                lastY = e.clientY;
+                
+                // 优化拖拽响应时间
+                requestAnimationFrame(render);
+            }
+        });
+        
+        canvasContainer.addEventListener('mouseup', function() {
+            isDragging = false;
+        });
+        
+        canvasContainer.addEventListener('mouseleave', function() {
+            isDragging = false;
+        });
+        
+        // 计算所有路径的边界
+        function calculateBounds() {
+            let minX = Infinity;
+            let minY = Infinity;
+            let maxX = -Infinity;
+            let maxY = -Infinity;
+            
+            // 检查BGA1的球
+            bga1.balls.forEach(ball => {
+                minX = Math.min(minX, ball.x - bga1.ballRadius);
+                minY = Math.min(minY, ball.y - bga1.ballRadius);
+                maxX = Math.max(maxX, ball.x + bga1.ballRadius);
+                maxY = Math.max(maxY, ball.y + bga1.ballRadius);
+            });
+            
+            // 检查BGA2的球
+            bga2.balls.forEach(ball => {
+                minX = Math.min(minX, ball.x - bga2.ballRadius);
+                minY = Math.min(minY, ball.y - bga2.ballRadius);
+                maxX = Math.max(maxX, ball.x + bga2.ballRadius);
+                maxY = Math.max(maxY, ball.y + bga2.ballRadius);
+            });
+            
+            // 检查所有路径
+            pathParams.paths.forEach(pathData => {
+                pathData.path.forEach(point => {
+                    minX = Math.min(minX, point.x);
+                    minY = Math.min(minY, point.y);
+                    maxX = Math.max(maxX, point.x);
+                    maxY = Math.max(maxY, point.y);
+                });
+            });
+            
+            return { minX, minY, maxX, maxY };
+        }
+        
+        // 一键显示全部并居中
+        document.getElementById('fitViewBtn').addEventListener('click', function() {
+            const bounds = calculateBounds();
+            const width = bounds.maxX - bounds.minX;
+            const height = bounds.maxY - bounds.minY;
+            const centerX = (bounds.minX + bounds.maxX) / 2;
+            const centerY = (bounds.minY + bounds.maxY) / 2;
+            
+            const containerWidth = canvasContainer.clientWidth;
+            const containerHeight = canvasContainer.clientHeight;
+            
+            // 计算合适的缩放比例
+            const scaleToFitWidth = containerWidth / width;
+            const scaleToFitHeight = containerHeight / height;
+            scale = Math.min(scaleToFitWidth, scaleToFitHeight) * 0.8; // 留一些边距
+            
+            // 计算偏移量使图形居中
+            offsetX = (containerWidth / 2) - (centerX * scale);
+            offsetY = (containerHeight / 2) - (centerY * scale);
+            
+            document.getElementById('zoomLevel').textContent = `${Math.round(scale * 100)}%`;
+            render();
+        });
+        
+        // 面板切换功能
+        function togglePanel(panelId) {
+            const panel = document.getElementById(panelId);
+            panel.classList.toggle('collapsed');
+            
+            // 更新箭头方向
+            const toggleBtn = panelId === 'config-panel' 
+                ? document.getElementById('config-toggle').querySelector('.toggle-btn')
+                : document.getElementById('layers-toggle').querySelector('.toggle-btn');
+            
+            toggleBtn.textContent = panel.classList.contains('collapsed') 
+                ? (panelId === 'config-panel' ? '→' : '←') 
+                : (panelId === 'config-panel' ? '←' : '→');
+            
+            // 调整中间显示区域
+            const displayPanel = document.getElementById('display-panel');
+            if (document.getElementById('config-panel').classList.contains('collapsed') && 
+                document.getElementById('layers-panel').classList.contains('collapsed')) {
+                displayPanel.classList.add('expanded');
+            } else {
+                displayPanel.classList.remove('expanded');
+            }
+        }
+        
+        document.getElementById('config-toggle').addEventListener('click', function() {
+            togglePanel('config-panel');
+        });
+        
+        document.getElementById('layers-toggle').addEventListener('click', function() {
+            togglePanel('layers-panel');
+        });
+        
+        // 全局控制按钮
+        document.getElementById('showAllBtn').addEventListener('click', function() {
+            pathParams.visibleLayers = pathParams.visibleLayers.map(() => true);
+            updateLayerControls(pathParams.layerCount);
+            render();
+        });
+        
+        document.getElementById('hideAllBtn').addEventListener('click', function() {
+            pathParams.visibleLayers = pathParams.visibleLayers.map(() => false);
+            updateLayerControls(pathParams.layerCount);
+            render();
+        });
+        
+        // 事件监听
+        document.getElementById('generateBtn').addEventListener('click', generateBGAAndPaths);
+        
+        // 初始化
+        pathParams.visibleLayers = [true]; // 默认第一层可见
+        updateLayerControls(1);
+        generateBGAAndPaths();
+        
+        // 绑定缩放按钮事件
+        document.getElementById('zoomIn').addEventListener('click', function() {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = rect.width / 2;
+            const mouseY = rect.height / 2;
+            zoomCanvas(1, mouseX, mouseY);
+        });
+        
+        document.getElementById('zoomOut').addEventListener('click', function() {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = rect.width / 2;
+            const mouseY = rect.height / 2;
+            zoomCanvas(-1, mouseX, mouseY);
+        });
+    </script>
+</body>
+</html>
